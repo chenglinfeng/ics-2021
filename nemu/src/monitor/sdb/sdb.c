@@ -38,6 +38,31 @@ static int cmd_q(char *args) {
   return -1;
 }
 
+static int cmd_si(char *args) {
+  char* s_num = strtok(NULL, " ");
+  if (s_num == NULL) {
+    cpu_exec(1);
+  } else {
+    int num = atoi(s_num);
+    cpu_exec(num);
+  }
+  return 0;
+}
+
+
+static int cmd_info(char *args) {
+  char* op = strtok(NULL, " ");
+  if (op == NULL) {
+    return 0;
+  }
+  if (strcmp(op, "r") == 0) {
+    // 直接调用就好了, 因为这个是ISA相关的, 所以通过一个接口来对上层屏蔽差异
+    isa_reg_display();
+    return 0;
+  }
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -48,8 +73,9 @@ static struct {
   { "help", "Display informations about all supported commands", cmd_help },
   { "c", "Continue the execution of the program", cmd_c },
   { "q", "Exit NEMU", cmd_q },
-
   /* TODO: Add more commands */
+  {"si", "Single step excution", cmd_si},
+  {"info", "Show information", cmd_info},
 
 };
 
