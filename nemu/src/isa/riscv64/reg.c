@@ -12,7 +12,7 @@ void isa_reg_display() {
     printf("General reg: ----------------------------------------------------------- \n");
     int i;
     for(i = 0 ; i < 32 ; i++) {
-      printf("%-3s :0x%08lx |  ", regs[i], cpu.gpr[i]._64);
+      printf("%-3s :0x%08lx |  ", regs[i], cpu.gpr[check_reg_idx(i)]._64);
       if ((i+1)%4 == 0)
         printf("\n");
     }
