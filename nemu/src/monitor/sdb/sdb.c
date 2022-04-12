@@ -50,6 +50,18 @@ static int cmd_si(char *args) {
   return 0;
 }
 
+static int cmd_p(char *args)
+{
+  bool flag=true;
+  int val = expr(args,&flag);
+  printf("%d\n",val);
+  if(!flag)
+  {
+    printf("Wrong format!\n");
+    return -1;
+  }
+  return 0;
+}
 
 static int cmd_info(char *args) {
   char* op = strtok(NULL, " ");
@@ -119,6 +131,7 @@ static struct {
   {"si", "Single step excution", cmd_si},
   {"info", "Show information", cmd_info},
   {"x", "scan memory", cmd_x},
+  {"p", "p Expr", cmd_p},
 };
 
 #define NR_CMD ARRLEN(cmd_table)
