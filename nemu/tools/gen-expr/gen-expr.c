@@ -5,7 +5,6 @@
 #include <assert.h>
 #include <string.h>
 
-
 // this should be enough
 static char buf[65536] = {};
 static char code_buf[65536 + 128] = {}; // a little larger than `buf`
@@ -121,7 +120,7 @@ int main(int argc, char *argv[]) {
     assert(fp != NULL);
 
     int result=-1;
-    fscanf(fp, "%u", &result);
+    if(fscanf(fp, "%u", &result));
     pclose(fp);
 
     for(int i = 0;i < strlen(buf);i++)
@@ -130,7 +129,17 @@ int main(int argc, char *argv[]) {
         buf[i]=' ';
     }
     if(result!=-1)
-      printf("%u %s\n", result, buf);
+        printf("%u %s\n", result, buf);
+    // {
+    //   printf("%u %s\n", result, buf);
+    //   int res = cmd_p(buf);
+    //   if(res==result){
+    //     printf("OK!");
+    //   }else{
+    //     printf("Error!!!!");
+    //   }
+    // }
+      
     else i--;
 
 
