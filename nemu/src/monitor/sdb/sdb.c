@@ -72,7 +72,10 @@ static int cmd_info(char *args) {
     // 直接调用就好了, 因为这个是ISA相关的, 所以通过一个接口来对上层屏蔽差异
     isa_reg_display();
     return 0;
-  }
+  }else if(strcmp(op, "w") == 0){
+      /* print the information of watch points */
+      wp_display();
+    }
   return 0;
 }
 
