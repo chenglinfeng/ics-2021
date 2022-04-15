@@ -35,6 +35,7 @@ static struct rule {
   {"\\$0", REG},
 	{"\\$ra", REG},
 	{"\\$[s,g,t]p", REG},
+  {"\\$pc", REG},
 	{"[a-zA-Z]+[a-zA-Z0-9_]*", SYMB},
 	{"\\*", '*'},
 	{"/", '/'},
