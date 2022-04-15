@@ -5,6 +5,8 @@
  */
 #include <regex.h>
 
+#include "memory/vaddr.h"
+
 enum {
 	NOTYPE = 256, EQ, NEQ, NUM, HEX, REG, SYMB, LS, RS, NG, NL, AND, OR, DEREF, NEG
 
@@ -32,10 +34,7 @@ static struct rule {
 	{"!=",NEQ},
 	{"0[x,X][0-9a-fA-F]+", HEX},
 	{"[0-9]+", NUM},
-  {"\\$0", REG},
-	{"\\$ra", REG},
-	{"\\$[s,g,t]p", REG},
-  {"\\$pc", REG},
+  {"\\$pc|\\$0|\\$at|\\$ra|\\$gp|\\$sp|\\$v[0-1]|\\$a[0-3]|\\$t[0-9]|\\$s[0-8]|\\$k[0-1]", REG},
 	{"[a-zA-Z]+[a-zA-Z0-9_]*", SYMB},
 	{"\\*", '*'},
 	{"/", '/'},
@@ -294,7 +293,7 @@ uint32_t eval(int p,int q,bool *success) {
 			case OR: return val1 || val2;break;
 			case '!': return !val2;break;
 			case '~': return ~val2;break;
-			//case DEREF: return *(hw_mem+val2);break;
+			case DEREF: return vaddr_read(val2,1);break;
 			case NEG: return -val2;break;
 			default: assert(0);
 		}
