@@ -133,6 +133,41 @@ static int cmd_d(char* args) {
   if (!delete_wp(n)) printf("Watchpoint %d does not exist\n", n);
   return 0;
 }
+
+static int cmd_exprtest(char* args) {
+
+  FILE* input = fopen("tools/gen-expr/input", "r");
+  char line[1024] = {};
+  int try_count = 0;
+  int error_count = 0;
+
+  while(fgets(line, 512, input) != NULL) {
+    try_count++;
+    //printf("%s", line);
+    char* t_res_s = strtok(line, " ");
+    char* t_expr = strtok(NULL, " ");
+    bool success;
+
+    //printf("%s\n%s", t_res_s, t_expr);
+
+    word_t res = expr(t_expr, &success);
+    word_t t_res;
+    sscanf(t_res_s, "%lu", &t_res);
+
+    if (success && (res == t_res)) {
+      printf("%d times: Correct\n", try_count);
+    }
+    else {
+      error_count++;
+      printf("%d times: Error\n", try_count);
+      printf("Expression:%s\n given_result:%lu\tnemu_result:%lu\n", t_expr, t_res, res);
+      return 0;
+    }
+  }
+  printf("Total: %d errors\n", error_count);
+  return 0;
+}
+
 static int cmd_help(char *args);
 
 static struct {
@@ -150,6 +185,8 @@ static struct {
   {"p", "p Expr", cmd_p},
   {"w", "Set a watchpoint to supervise the value of an expression", cmd_w},
   {"d", "Delete watchpoint N", cmd_d},
+  {"exprtest", "To test the correctness of command p", cmd_exprtest},
+
 };
 
 #define NR_CMD ARRLEN(cmd_table)
