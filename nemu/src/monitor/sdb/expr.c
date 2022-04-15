@@ -1,14 +1,13 @@
 #include <isa.h>
-
+#include <memory/paddr.h>
 /* We use the POSIX regex functions to process regular expressions.
  * Type 'man regex' for more information about POSIX regex functions.
  */
 #include <regex.h>
 
-#include "memory/vaddr.h"
-
 enum {
-	NOTYPE = 256, EQ, NEQ, NUM, HEX, REG, SYMB, LS, RS, NG, NL, AND, OR, DEREF, NEG
+  TK_NOTYPE = 256, TK_EQ, TK_NEQ, TK_REG, TK_REVERSE,
+  TK_DEREF, TK_DEC, TK_HEX,
 
   /* TODO: Add more token types */
 
@@ -23,44 +22,24 @@ static struct rule {
    * Pay attention to the precedence level of different rules.
    */
 
-  // {" +", TK_NOTYPE},    // spaces
-  // {"\\+", '+'},         // plus
-  // {"==", TK_EQ},        // equal
-
-	{" +",	NOTYPE},				// white space
-	{"\\+", '+'},
-	{"\\-", '-'},
-	{"==", EQ},
-	{"!=",NEQ},
-	{"0[x,X][0-9a-fA-F]+", HEX},
-	{"[0-9]+", NUM},
-  {"\\$pc|\\$0|\\$at|\\$ra|\\$gp|\\$sp|\\$v[0-1]|\\$a[0-3]|\\$t[0-9]|\\$s[0-8]|\\$k[0-1]", REG},
-	{"[a-zA-Z]+[a-zA-Z0-9_]*", SYMB},
-	{"\\*", '*'},
-	{"/", '/'},
-	{"%", '%'},
-	{"\\(", '('},
-	{"\\)", ')'},
-	{"<<", LS},						//left shift
-	{">>", RS},						//right shift
-	{"<=", NG},						//not greater than
-	{">=", NL},						//not less than
-	{"<", '<'},
-	{">", '>'},
-	{"&&",AND},
-	{"\\|\\|",OR},
-	{"&",'&'},
-	{"\\^",'^'},
-	{"\\|",'|'},
-	{"!",'!'},
-	{"~",'~'},
-
+  {"\\s+", TK_NOTYPE},  // spaces
+  {"==", TK_EQ},        // equal
+  {"!=", TK_NEQ},       // unequal
+  {"\\+", '+'},         // plus
+  {"-", '-'},           // minus
+  {"\\*", '*'},         // multiply
+  {"\\/", '/'},         // divide
+  {"&&", '&'},          // and
+  {"\\(", '('},         // left bracket
+  {"\\)", ')'},         // right bracket
+  {"0x[0-9a-zA-Z]+", TK_HEX},   // hexadecimal
+  {"[0-9]+", TK_DEC},     // decimal numbers
+  {"\\$\\w{1,3}", TK_REG} // value of register
 };
 
 #define NR_REGEX ARRLEN(rules)
 
 static regex_t re[NR_REGEX] = {};
-
 
 /* Rules are used for many times.
  * Therefore we compile them only once before any usage.
@@ -84,7 +63,7 @@ typedef struct token {
   char str[32];
 } Token;
 
-static Token tokens[32] __attribute__((used)) = {};
+static Token tokens[128] __attribute__((used)) = {};
 static int nr_token __attribute__((used))  = 0;
 
 static bool make_token(char *e) {
@@ -100,35 +79,35 @@ static bool make_token(char *e) {
       if (regexec(&re[i], e + position, 1, &pmatch, 0) == 0 && pmatch.rm_so == 0) {
         char *substr_start = e + position;
         int substr_len = pmatch.rm_eo;
-
-        Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
-            i, rules[i].regex, position, substr_len, substr_len, substr_start);
-
+        
+        //Log("match rules[%d] = \"%s\" at position %d with len %d: %.*s",
+          //i, rules[i].regex, position, substr_len, substr_len, substr_start);
+        
         position += substr_len;
 
         /* TODO: Now a new token is recognized with rules[i]. Add codes
          * to record the token in the array `tokens'. For certain types
          * of tokens, some extra actions should be performed.
          */
-      
-        int j;
-				switch(rules[i].token_type) {
-					case NOTYPE:break;
-					case REG:
-					case NUM: 
-					case HEX:
-					case SYMB:
-							for(j=0;j<substr_len;j++)
-							{
-								tokens[nr_token].str[j]=*(substr_start+j);
-							}
-							tokens[nr_token].str[j]='\0';
-					default: 
-							tokens[nr_token].type = rules[i].token_type;
-							nr_token ++;
-				}
 
-				break;
+        switch (rules[i].token_type) {
+          case '+': case '-': case '*': case '/': case '(': case ')':
+          case '&': case TK_EQ: case TK_NEQ:
+            tokens[nr_token].type = rules[i].token_type;
+            nr_token++;
+            break;
+          case TK_DEC: case TK_HEX: case TK_REG:
+            if (substr_len > 31) {puts("Too long numbers not supported"); return false;}
+            tokens[nr_token].type = rules[i].token_type;
+            strncpy(tokens[nr_token].str, substr_start, substr_len);
+            tokens[nr_token].str[substr_len] = '\0';
+            nr_token++;
+            break;
+          case TK_NOTYPE: break;
+          default: TODO();
+        }
+
+        break;
       }
     }
 
@@ -141,184 +120,228 @@ static bool make_token(char *e) {
   return true;
 }
 
-static struct Node {
-	int operand;
-	int priority;
-} table[] = {
-	{OR,12},
-	{AND,11},
-	{'|',10},
-	{'^',9},
-	{'&',8},
-	{EQ,7},
-	{NEQ,7},
-	{'>',6},
-	{'<',6},
-	{NG,6},
-	{NL,6},
-	{LS,5},
-	{RS,5},
-	{'+',4},
-	{'-',4},
-	{'*',3},
-	{'/',3},
-	{'%',3},
-	{'!',2},
-	{'~',2},
-	{DEREF,2},
-	{NEG,2},
-};
-int NR_TABLE = sizeof(table) / sizeof(table[0]);
-
-int check_parentheses(int p, int q) {
-	int i,j=0;
-	for(i=p;i<q;i++)
-	{
-		if(tokens[i].type=='(')
-			j++;
-		else if(tokens[i].type==')')
-			j--;
-		if(j==0)
-			return 0;
-	}
-	if(tokens[q].type==')')
-		j--;
-	return (j==0)&&(tokens[p].type=='(')&&(tokens[q].type==')');
-}
-
-int isoperand(int i){
-	return tokens[i].type!=NOTYPE && tokens[i].type!=NUM && tokens[i].type!=REG && tokens[i].type!=SYMB && tokens[i].type!=HEX && tokens[i].type!='(' && tokens[i].type!=')';
-}
-uint32_t eval(int p,int q,bool *success) {
-	if(p > q) {
-	/* Bad expression */
-		*success=false;
-		return 0;
-	}
-	else if(p == q) { 
-	/* Single token.
-	* For now this token should be a number. 
-	* Return the value of the number.
-	*/ 
-		if(tokens[p].type==HEX)
-		{
-			uint32_t result=0;
-			sscanf(tokens[p].str,"%x",&result);
-			return result;
-		}
-		else if(tokens[p].type==NUM)
-		{
-			uint32_t result=0;
-			sscanf(tokens[p].str,"%d",&result);
-			return result;
-		}
-		else if(tokens[p].type==REG)
-		{
-			if(tokens[p].str[2]=='0')
-				return cpu.gpr[0]._64;
-			else if(tokens[p].str[2]=='r'&&tokens[p].str[3]=='a')
-				return cpu.gpr[1]._64;
-			else if(tokens[p].str[2]=='s'&&tokens[p].str[p]=='p')
-				return cpu.gpr[2]._64;
-			else if(tokens[p].str[2]=='g'&&tokens[p].str[2]=='p')
-				return cpu.gpr[3]._64;
-			else if(tokens[p].str[2]=='t'&&tokens[p].str[3]=='p')
-				return cpu.gpr[4]._64;
-			else
-				return cpu.pc;
-		}
-		// else
-		// 	return look_up_symtab(tokens[p].str, success);
-	}
-	else if(check_parentheses(p, q) == true) {
-	/* The expression is surrounded by a matched pair of parentheses. 
-	* If that is the case, just throw away the parentheses.
-	*/
-		return eval(p + 1, q - 1,success); 
-	}
-	else {
-		int op=-1;
-		int op_priority=0;
-		int i;
-		for(i=p;i<=q;i++)
-		{
-			if(tokens[i].type=='(')
-			{
-				int k=1;
-				while(k!=0)
-				{
-					i++;
-					if(tokens[i].type=='(')
-						k++;
-					else if(tokens[i].type==')')
-						k--;
-				}
-			}
-			else if(isoperand(i))
-			{
-				int j;
-				for(j=0;j<NR_TABLE;j++)
-					if(table[j].operand==tokens[i].type)
-						break;
-				if(table[j].priority>=op_priority)
-				{
-					op_priority=table[j].priority;
-					op=i;
-				}
-			}
-		}
-		int op_type=tokens[op].type;
-		uint32_t val1=0,val2=0;
-		if(op_type!='!'&&op_type!='~'&&op_type!=NEG&&op_type!=DEREF)
-			val1 = eval(p, op - 1, success);
-		val2 = eval(op + 1, q, success);
-		switch(op_type) {
-			case '+': return val1 + val2;break;
-			case '-': return val1 - val2;break;
-			case '*': return val1 * val2;break;
-			case '/': return val1 / val2;break;
-			case '%': return val1 % val2;break;
-			case LS: return val1 << val2;break;
-			case RS: return val1 >> val2;break;
-			case '>': return val1 > val2;break;
-			case '<': return val1 < val2;break;
-			case NG: return val1 <= val2;break;
-			case NL: return val1 >= val2;break;
-			case EQ: return val1 == val2;break;
-			case NEQ: return val1 != val2;break;
-			case '&': return val1 & val2;break;
-			case '^': return val1 ^ val2;break;
-			case '|': return val1 | val2;break;
-			case AND: return val1 && val2;break;
-			case OR: return val1 || val2;break;
-			case '!': return !val2;break;
-			case '~': return ~val2;break;
-			case DEREF: return vaddr_read(val2,1);break;
-			case NEG: return -val2;break;
-			default: assert(0);
-		}
-	}
-  return 0;
-}
+static word_t eval(uint p, uint q, bool *success);
 
 word_t expr(char *e, bool *success) {
-  *success=true;
   if (!make_token(e)) {
     *success = false;
     return 0;
   }
 
   /* TODO: Insert codes to evaluate the expression. */
-  for(int i = 0;i < nr_token;i++)
-  {
-    if(tokens[i].type == '*' && (i == 0 || isoperand(i-1)))
-		tokens[i].type = DEREF;
-	else if(tokens[i].type == '-' && (i == 0 || isoperand(i-1)))
-		tokens[i].type = NEG;
+  return eval(0, nr_token - 1, success);
+}
+
+
+static bool check_parentheses(uint p, uint q) {
+  uint i;
+  if (tokens[p].type != '(' || tokens[q].type != ')') 
+    return false;     // not started with a '(' or ended with a ')'
+  else{
+    int count = 0;
+    for (i = p; i <= q; i++) {
+      if (tokens[i].type == '(') count++;
+      else if (tokens[i].type == ')') count--;
+
+      if (i != q && count <= 0) return false;
+    }
+    if (count != 0) return false; else return true;
+  }
+}
+
+static uint find_main_op(uint p, uint q, bool *success) {
+  int bracket_count = 0;
+  bool exist_eq = false;
+  bool exist_plusminus = false;
+  bool exist_muldiv = false;
+  bool exist_deref = false;
+  bool exist_reverse = false;
+  unsigned int op = 0;
+
+  *success = false;
+  /* scanning */
+  for (uint i = p; i <= q; i++) {
+    /* if in brackets */
+    if (tokens[i].type == '(') {
+      bracket_count++;
+      continue;
+    }
+    else if (tokens[i].type == ')') {
+      bracket_count--;
+      continue;
+    }
+    if (bracket_count < 0) {
+      *success = false;
+      return 0;
+    }
+
+    /* not in a bracket */
+    if (bracket_count == 0){
+
+      if (tokens[i].type == '*') {
+        /* '*' */
+        if (i == p || 
+            (tokens[i - 1].type != TK_DEC && tokens[i - 1].type != TK_HEX && tokens[i - 1].type != ')' && tokens[i - 1].type != TK_REG)
+        ){
+          /* DEREF */
+          tokens[i].type = TK_DEREF;
+          if (!exist_eq && !exist_plusminus && !exist_muldiv && !exist_deref) {
+            op = i;
+            exist_deref = true;
+            *success = true;
+          }
+        }
+        else{
+          if (!exist_eq && !exist_plusminus){
+            exist_muldiv = true;
+            op = i;
+            *success = true;
+          }
+        }
+      }
+      else if (tokens[i].type == '-') {
+        /* '-' */
+        if (i == p || 
+            (tokens[i - 1].type != TK_DEC && tokens[i - 1].type != TK_HEX && tokens[i - 1].type != ')' && tokens[i - 1].type != TK_REG)
+        ) {
+          /* REVERSE */
+          tokens[i].type = TK_REVERSE;
+          if (!exist_eq && !exist_plusminus && !exist_muldiv && !exist_reverse) {
+            op = i;
+            exist_reverse = true;
+            *success = true;
+          }
+        }
+        else{
+          if (!exist_eq) {
+            exist_plusminus = true;
+            op = i;
+            *success = true;
+          }
+        }
+      }
+      else if (tokens[i].type == '&') {
+        /* and */
+        *success = true;
+        return i; // max priority
+      }
+      else if (tokens[i].type == TK_EQ || tokens[i].type == TK_NEQ) {
+        /* == or != */
+        exist_eq = true;
+        op = i;
+        *success = true;
+      }
+      else if(tokens[i].type == '+' && !exist_eq) {
+        /* '+' */
+        exist_plusminus = true;
+        op = i;
+        *success = true;
+      }
+      else if(tokens[i].type == '/' && !exist_eq && !exist_plusminus) {
+        /* '/' */
+        exist_muldiv = true;
+        op = i;
+        *success = true;
+      }
+      else if (tokens[i].type == TK_DEREF || tokens[i].type == TK_REVERSE) {
+        /* deref */
+        if (tokens[i].type == TK_DEREF && !exist_eq && !exist_plusminus && !exist_muldiv && !exist_deref) {
+          op = i;
+          exist_deref = true;
+          *success = true;
+        }
+        else if (tokens[i].type == TK_REVERSE && !exist_eq && !exist_plusminus && !exist_muldiv && !exist_reverse) {
+          op = i;
+          exist_reverse = true;
+          *success = true;
+        }
+      }
+    }
   }
 
-  unsigned int ans = eval(0,nr_token-1,success);
-  //printf("%u\n",ans);
-  
-  return ans;
+  /* result */
+  if (*success) return op;
+  else return 0;
+
+}
+
+static word_t eval(uint p, uint q, bool *success) {
+  if (p > q) {
+    /* Bad expression */
+    Log("Bad expression");
+    *success = false;
+    return 0;
+  }
+  else if (p == q) {
+    /* Single token.
+     * For now this token should be a number.
+     * Return the value of the number.
+     */
+    word_t num;
+
+    if (tokens[p].type == TK_DEC) {
+      sscanf(tokens[p].str, "%ld", &num);
+      *success = true;
+    }
+    else if (tokens[p].type == TK_HEX){
+      sscanf(tokens[p].str, "0x%lx", &num);
+      *success = true;
+    }
+    else {
+      /* register */
+      num = isa_reg_str2val(tokens[p].str + 1, success);
+    }
+    
+    return num;
+  }
+  else if (check_parentheses(p, q) == true) {
+    /* The expression is surrounded by a matched pair of parentheses.
+     * If that is the case, just throw away the parentheses.
+     */
+    return eval(p + 1, q - 1, success);
+  }
+  else {
+    bool find_success, success1, success2;
+    uint op = find_main_op(p, q, &find_success);
+    if (tokens[op].type == TK_DEREF){
+      word_t addr = eval(op + 1, q, &success1);
+      *success = find_success && success1;
+      if (*success){
+        return paddr_read(addr, 4);
+      }
+      else{
+        return 0;
+      }
+    }
+    else if (tokens[op].type == TK_REVERSE) {
+      word_t val = eval(op + 1, q, &success1);
+      *success = find_success && success1;
+      if (*success){
+        return -val;
+      }
+      else{
+        return 0;
+      }
+    }
+    else {
+      word_t val1 = eval(p, op - 1, &success1);
+      word_t val2 = eval(op + 1, q, &success2);
+      *success = find_success && success1 && success2;
+      if (*success){
+        switch (tokens[op].type) {
+          case '+': return val1 + val2;
+          case '-': return val1 - val2;
+          case '*': return val1 * val2;
+          case '/': return val1 / val2;
+          case '&': return val1 && val2;
+          case TK_EQ: return val1 == val2;
+          case TK_NEQ: return val1 != val2;
+          default: assert(0);
+        }
+      }
+      else{
+        return 0;
+      }
+    }
+  }
 }
