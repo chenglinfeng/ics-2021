@@ -11,6 +11,10 @@
  */
 #define MAX_INSTR_TO_PRINT 10
 
+#ifdef CONFIG_WATCHPOINT
+  bool wp_update_display_changed();
+#endif
+
 CPU_state cpu = {};
 uint64_t g_nr_guest_instr = 0;
 static uint64_t g_timer = 0; // unit: us
@@ -27,6 +31,10 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #endif
   if (g_print_step) { IFDEF(CONFIG_ITRACE, puts(_this->logbuf)); }
   IFDEF(CONFIG_DIFFTEST, difftest_step(_this->pc, dnpc));
+
+#ifdef CONFIG_WATCHPOINT
+  if (wp_update_display_changed()) nemu_state.state = NEMU_STOP;
+#endif
 }
 
 #include <isa-exec.h>

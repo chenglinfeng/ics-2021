@@ -117,6 +117,19 @@ static int cmd_x(char *args) {
   return 0;
 }
 
+static int cmd_w(char* args) {
+  bool success;
+  add_wp(args, &success);
+  if (!success) printf("Unvalid expression\n");
+  return 0;
+}
+
+static int cmd_d(char* args) {
+  int n;
+  sscanf(args, "%d", &n);
+  if (!delete_wp(n)) printf("Watchpoint %d does not exist\n", n);
+  return 0;
+}
 static int cmd_help(char *args);
 
 static struct {
@@ -132,6 +145,8 @@ static struct {
   {"info", "Show information", cmd_info},
   {"x", "scan memory", cmd_x},
   {"p", "p Expr", cmd_p},
+  {"w", "Set a watchpoint to supervise the value of an expression", cmd_w},
+  {"d", "Delete watchpoint N", cmd_d},
 };
 
 #define NR_CMD ARRLEN(cmd_table)
