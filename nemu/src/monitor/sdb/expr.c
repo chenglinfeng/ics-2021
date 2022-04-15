@@ -212,27 +212,21 @@ uint32_t eval(int p,int q,bool *success) {
 			sscanf(tokens[p].str,"%d",&result);
 			return result;
 		}
-		// else if(tokens[p].type==REG)
-		// {
-		// 	if(tokens[p].str[2]=='a')
-		// 		return cpu.eax;
-		// 	else if(tokens[p].str[2]=='b')
-		// 		return cpu.ebx;
-		// 	else if(tokens[p].str[2]=='c')
-		// 		return cpu.ecx;
-		// 	else if(tokens[p].str[2]=='d')
-		// 		return cpu.edx;
-		// 	else if(tokens[p].str[2]=='s'&&tokens[p].str[3]=='i')
-		// 		return cpu.esi;
-		// 	else if(tokens[p].str[2]=='d'&&tokens[p].str[3]=='i')
-		// 		return cpu.edi;
-		// 	else if(tokens[p].str[2]=='s'&&tokens[p].str[3]=='p')
-		// 		return cpu.esp;
-		// 	else if(tokens[p].str[2]=='b'&&tokens[p].str[3]=='p')
-		// 		return cpu.ebp;
-		// 	else
-		// 		return cpu.eip;
-		// }
+		else if(tokens[p].type==REG)
+		{
+			if(tokens[p].str[2]=='0')
+				return cpu.gpr[0]._64;
+			else if(tokens[p].str[2]=='r'&&tokens[p].str[3]=='a')
+				return cpu.gpr[1]._64;
+			else if(tokens[p].str[2]=='s'&&tokens[p].str[p]=='p')
+				return cpu.gpr[2]._64;
+			else if(tokens[p].str[2]=='g'&&tokens[p].str[2]=='p')
+				return cpu.gpr[3]._64;
+			else if(tokens[p].str[2]=='t'&&tokens[p].str[3]=='p')
+				return cpu.gpr[4]._64;
+			else
+				return cpu.pc;
+		}
 		// else
 		// 	return look_up_symtab(tokens[p].str, success);
 	}
