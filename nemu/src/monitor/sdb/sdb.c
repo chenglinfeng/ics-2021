@@ -142,7 +142,7 @@ static int cmd_exprtest(char* args) {
   int try_count = 0;
   int error_count = 0;
 
-  while(fgets(line, 1024, input) != NULL) {
+  while(fgets(line, 512, input) != NULL) {
     try_count++;
     //printf("%s", line);
     char* t_res_s = strtok(line, " ");
