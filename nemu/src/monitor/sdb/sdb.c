@@ -162,7 +162,6 @@ static int cmd_exprtest(char* args) {
       error_count++;
       printf("%d times: Error\n", try_count);
       printf("Expression:%s\n given_result:%lu\tnemu_result:%lu\n", t_expr, t_res, res);
-      return 0;
     }
   }
   printf("Total: %d errors\n", error_count);
