@@ -41,6 +41,9 @@ $(OBJ_DIR)/%.o: %.cc
 	@echo + CXX $<
 	@mkdir -p $(dir $@)
 	@$(CXX) $(CFLAGS) $(CXXFLAGS) -c -o $@ $<
+	@$(CXX) $(CFLAGS) $(SO_CFLAGS) -E -MF /dev/null $< | \
+      grep -ve '^#' | \
+      clang-format - > $(basename $@).i
 	$(call call_fixdep, $(@:.o=.d), $@)
 
 # Depencies
