@@ -215,15 +215,15 @@ uint32_t eval(int p,int q,bool *success) {
 		else if(tokens[p].type==REG)
 		{
 			if(tokens[p].str[2]=='0')
-				return cpu.gpr[0]._64;
+				return cpu.gpr[0]._32;
 			else if(tokens[p].str[2]=='r'&&tokens[p].str[3]=='a')
-				return cpu.gpr[1]._64;
+				return cpu.gpr[1]._32;
 			else if(tokens[p].str[2]=='s'&&tokens[p].str[p]=='p')
-				return cpu.gpr[2]._64;
+				return cpu.gpr[2]._32;
 			else if(tokens[p].str[2]=='g'&&tokens[p].str[2]=='p')
-				return cpu.gpr[3]._64;
+				return cpu.gpr[3]._32;
 			else if(tokens[p].str[2]=='t'&&tokens[p].str[3]=='p')
-				return cpu.gpr[4]._64;
+				return cpu.gpr[4]._32;
 			else
 				return cpu.pc;
 		}

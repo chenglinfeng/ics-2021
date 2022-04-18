@@ -102,12 +102,12 @@ static int cmd_x(char *args) {
   for (int i = 1; i <= num1<<2; i++) {
     // 因为这个是一个字节数组, 所以我们需要四个为一组进行扫描
     if (i%4 != 0) {
-      printf("0x%-4lx ", paddr_read(addr + i - 1, 1));
+      printf("0x%-4x ", paddr_read(addr + i - 1, 1));
     } else {
-      printf("0x%-4lx\t", paddr_read(addr + i - 1, 1));
+      printf("0x%-4x\t", paddr_read(addr + i - 1, 1));
       for (int j = i - 3; j <= i; j++) {
         // 打印十进制的
-        printf("%-4ld ", paddr_read(addr + j - 1, 1));
+        printf("%-4d ", paddr_read(addr + j - 1, 1));
       }
       printf("\n");
       if (i == num1<<2) {
@@ -153,7 +153,7 @@ static int cmd_exprtest(char* args) {
 
     word_t res = expr(t_expr, &success);
     word_t t_res;
-    sscanf(t_res_s, "%lu", &t_res);
+    sscanf(t_res_s, "%u", &t_res);
 
     if (success && (res == t_res)) {
       printf("%d times: Correct\n", try_count);
@@ -161,7 +161,7 @@ static int cmd_exprtest(char* args) {
     else {
       error_count++;
       printf("%d times: Error\n", try_count);
-      printf("Expression:%s\n given_result:%lu\tnemu_result:%lu\n", t_expr, t_res, res);
+      printf("Expression:%s\n given_result:%u\tnemu_result:%u\n", t_expr, t_res, res);
     }
   }
   printf("Total: %d errors\n", error_count);
