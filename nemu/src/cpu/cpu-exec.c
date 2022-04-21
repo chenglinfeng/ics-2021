@@ -33,6 +33,13 @@
   }
 #endif
 
+#ifdef CONFIG_FTRACE
+  bool fflag;
+  char fbuf[12800];
+  #include<ftrace.h>
+  int depth_count = 0;
+#endif
+
 CPU_state cpu = {};
 uint64_t g_nr_guest_instr = 0;
 static uint64_t g_timer = 0; // unit: us
@@ -57,6 +64,14 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 #ifdef CONFIG_WATCHPOINT
   if (wp_update_display_changed()) nemu_state.state = NEMU_STOP;
 #endif
+
+#ifdef CONFIG_FTRACE
+  if (fflag) {
+    //puts(fbuf);
+    log_write("%s\n", fbuf);
+  }
+#endif
+
 }
 
 #include <isa-exec.h>
@@ -69,6 +84,40 @@ static const void* g_exec_table[TOTAL_INSTR] = {
 static void fetch_decode_exec_updatepc(Decode *s) {
   fetch_decode(s, cpu.pc);
   s->EHelper(s);
+#ifdef CONFIG_FTRACE
+  char* pf = fbuf;
+  int opcode = s->isa.instr.val & 0x7f;
+  if (opcode == 0b1101111 || opcode == 0b1100111) {
+    fflag = true;
+    if (s->isa.instr.val == 0x00008067) {
+      memset(pf, ' ', depth_count);
+      pf += depth_count;
+      for (int i = 0; i < functab_num; i++) {
+        if (s->pc >= functab[i].st_value && s->pc < functab[i].st_value + functab[i].st_size) {
+          pf += sprintf(pf, "ret[%s]", idx2str(strtab, functab[i].st_name));
+          depth_count--;
+          break;
+        }
+      }
+      *pf = 0;
+    }
+    else {
+      memset(pf, ' ', depth_count);
+      pf += depth_count;
+      for (int i = 0; i < functab_num; i++) {
+        if (s->dnpc >= functab[i].st_value && s->dnpc < functab[i].st_value + functab[i].st_size) {
+          pf += sprintf(pf, "call[%s@0x%08x]", idx2str(strtab, functab[i].st_name), s->dnpc);
+          depth_count++;
+          break;
+        }
+      }
+      *pf = 0;
+    }
+  }
+  else{
+    fflag = false;
+  }
+#endif 
   cpu.pc = s->dnpc;
 }
 
@@ -151,6 +200,9 @@ void cpu_exec(uint64_t n) {
     case NEMU_RUNNING: nemu_state.state = NEMU_STOP; break;
 
     case NEMU_END: case NEMU_ABORT:
+#ifdef CONFIG_FTRACE
+      release_ftrace();
+#endif    
       Log("nemu: %s at pc = " FMT_WORD,
           (nemu_state.state == NEMU_ABORT ? ASNI_FMT("ABORT", ASNI_FG_RED) :
            (nemu_state.halt_ret == 0 ? ASNI_FMT("HIT GOOD TRAP", ASNI_FG_GREEN) :
