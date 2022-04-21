@@ -67,6 +67,7 @@ static void trace_and_difftest(Decode *_this, vaddr_t dnpc) {
 
 #ifdef CONFIG_FTRACE
   if (fflag) {
+    printf("%x:",_this->pc);
     puts(fbuf);
     log_write("%s\n", fbuf);
   }
