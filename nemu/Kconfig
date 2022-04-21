@@ -152,6 +152,23 @@ config ITRACE_COND
   bool "Enable ring buffer"
   default y
 
+
+  config MTRACE
+  depends on TRACE
+  bool "Enable memory tracer"
+  default n
+
+config MTRACE_START
+  depends on MTRACE
+  hex "Where memory tracer is enabled (memory address)"
+  default 0x80000000
+
+config MTRACE_END
+  depends on MTRACE
+  hex "Where memory tracer is disabled (memory address)"
+  default 0xffffffff
+
+  
 config DIFFTEST
   depends on TARGET_NATIVE_ELF
   bool "Enable differential testing"
