@@ -30,7 +30,7 @@ void sdb_set_batch_mode();
 static char *log_file = NULL;
 static char *diff_so_file = NULL;
 static char *img_file = NULL;
-static char *elf_file = NULL;
+static char *elf_file = "/root/ics2021/am-kernels/tests/cpu-tests/build/recursion-riscv32-nemu.elf";
 static int difftest_port = 1234;
 
 static long load_img() {
