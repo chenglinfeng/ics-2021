@@ -111,7 +111,8 @@ void init_monitor(int argc, char *argv[]) {
   init_isa();
 
   /* Load the .elf file if ftrace is enabled */
-  IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
+  if (elf_file!=NULL)
+    IFDEF(CONFIG_FTRACE, init_ftrace(elf_file));
 
   /* Load the image to memory. This will overwrite the built-in image. */
   long img_size = load_img();
