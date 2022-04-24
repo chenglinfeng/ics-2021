@@ -4,7 +4,12 @@
 #define KEYDOWN_MASK 0x8000
 
 void __am_input_keybrd(AM_INPUT_KEYBRD_T *kbd) {
-  uint32_t code = inl(KBD_ADDR);
-  kbd->keydown = (code & (uint32_t)KEYDOWN_MASK) != 0;
-  kbd->keycode = code & ~(uint32_t)KEYDOWN_MASK;
+  
+  uint32_t code = AM_KEY_NONE;
+  code = inl(KBD_ADDR);
+
+  kbd->keydown = (code & KEYDOWN_MASK ? true : false);
+  kbd->keycode = code & ~KEYDOWN_MASK;
+  // kbd->keydown = (code & (uint32_t)KEYDOWN_MASK) != 0;
+  // kbd->keycode = code & ~(uint32_t)KEYDOWN_MASK;
 }
